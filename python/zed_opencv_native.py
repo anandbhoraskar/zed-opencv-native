@@ -36,7 +36,7 @@ def download_calibration_file(serial_number) :
     if os.name == 'nt' :
         hidden_path = os.getenv('APPDATA') + '\\Stereolabs\\settings\\'
     else :
-        hidden_path = '/usr/local/zed/settings/'
+        hidden_path = '/Users/anand/cmu/capstone/zed/settings'
     calibration_file = hidden_path + 'SN' + str(serial_number) + '.conf'
 
     if os.path.isfile(calibration_file) == False:
@@ -146,8 +146,17 @@ def main() :
         print('Please provide ZED serial number')
         exit(1)
 
+    idx = 0
+
+    while any(str(idx) in k for k in os.listdir()):
+        idx+=1
+
+    foldername = "file" + str(idx)
+    os.mkdir(foldername)
+
     # Open the ZED camera
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
+    fps = cap.get(cv2.CAP_PROP_FPS)
     if cap.isOpened() == 0:
         exit(-1)
 
@@ -165,6 +174,17 @@ def main() :
         exit(1)
     print("Calibration file found. Loading...")
 
+    out_lraw = cv2.VideoWriter(foldername+'/lraw.avi',cv2.VideoWriter_fourcc('M','J','P','G'), fps, (image_size.width,image_size.height))
+    out_rraw = cv2.VideoWriter(foldername+'/rraw.avi',cv2.VideoWriter_fourcc('M','J','P','G'), fps, (image_size.width,image_size.height))
+    out_lrec = cv2.VideoWriter(foldername+'/lrec.avi',cv2.VideoWriter_fourcc('M','J','P','G'), fps, (image_size.width,image_size.height))
+    out_rrec = cv2.VideoWriter(foldername+'/rrec.avi',cv2.VideoWriter_fourcc('M','J','P','G'), fps, (image_size.width,image_size.height))
+
+    q_lraw = []
+    q_rraw = []
+    q_lrec = []
+    q_rrec = []
+    
+
     camera_matrix_left, camera_matrix_right, map_left_x, map_left_y, map_right_x, map_right_y = init_calibration(calibration_file, image_size)
 
     while True :
@@ -174,15 +194,43 @@ def main() :
         left_right_image = np.split(frame, 2, axis=1)
         # Display images
         cv2.imshow("left RAW", left_right_image[0])
+        cv2.imshow("right RAW", left_right_image[1])
+
+        q_lraw.append(left_right_image[0])
+        q_rraw.append(left_right_image[1])
+        # out_lraw.write(left_right_image[0])
+        # out_rraw.write(left_right_image[1])
 
         left_rect = cv2.remap(left_right_image[0], map_left_x, map_left_y, interpolation=cv2.INTER_LINEAR)
         right_rect = cv2.remap(left_right_image[1], map_right_x, map_right_y, interpolation=cv2.INTER_LINEAR)
 
         cv2.imshow("left RECT", left_rect)
         cv2.imshow("right RECT", right_rect)
+
+        q_lrec.append(left_rect)
+        q_rrec.append(right_rect)
+        # out_lrec.write(left_rect)
+        # out_rrec.write(right_rect)
+
+        # print(left_right_image[0].shape)
+        # print(left_rect.shape)
+
         if cv2.waitKey(30) >= 0 :
             break
 
+    for im in q_lraw[:-5]:
+        out_lraw.write(im)
+    for im in q_rraw[:-5]:
+        out_rraw.write(im)
+    for im in q_lrec[:-5]:
+        out_lrec.write(im)
+    for im in q_lrec[:-5]:
+        out_lrec.write(im)
+        
+    out_lraw.release()
+    out_rraw.release()
+    out_lrec.release()
+    out_rrec.release()
     exit(0)
 
 if __name__ == "__main__":
